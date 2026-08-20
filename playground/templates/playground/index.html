@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ORM Playground — Query</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link href="https://fonts.googleapis.com/css2?family=Patrick+Hand&family=Kalam:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink:        #1a3872;
+      --ink-light:  #1e4282;
+      --ink-faint:  #5a7aaa;
+      --ink-dark:   #0f2250;
+      --paper:      #fdfdf6;
+      --paper-2:    #f5f8f2;
+      --rule:       rgba(100, 145, 210, 0.18);
+      --margin-red: rgba(205, 50, 40, 0.50);
+      --highlight:  #fff9a0;
+      --highlight2: #b8f5c8;
+      --highlight3: #ffd6b8;
+      --red-ink:    #c23028;
+      --green-ink:  #186830;
+      --orange-ink: #b05400;
+      --rule-h:     34px;
+      --mono:       "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    }
+
+    body {
+      background: #c8c4b4;
+      background-image:
+        radial-gradient(ellipse at 20% 20%, #bbb8a8 0%, transparent 60%),
+        radial-gradient(ellipse at 80% 75%, #b4b0a0 0%, transparent 60%);
+      font-family: 'Patrick Hand', cursive;
+      min-height: 100vh;
+      padding: 48px 24px 80px;
+    }
+
+    /* ── Notebook shell ── */
+    .notebook {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: var(--paper);
+      border-radius: 2px;
+      box-shadow:
+        -3px 0 0 #b0a080,
+        6px 6px 28px rgba(0,0,0,0.30),
+        12px 12px 55px rgba(0,0,0,0.12);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+    }
+
+    /* ── Left binding ── */
+    .binding {
+      position: relative;
+      width: 50px;
+      flex-shrink: 0;
+      background: linear-gradient(90deg, #b8a888 0%, #cfc0a0 100%);
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 65px;
+      gap: 50px;
+    }
+    .hole {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: #c8c4b4;
+      box-shadow: inset 0 2px 5px rgba(0,0,0,0.38), 0 1px 2px rgba(255,255,255,0.22);
+      flex-shrink: 0;
+    }
+
+    /* ── Main content ── */
+    .main-area {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+    }
+
+    /* ── Ruled content ── */
+    .content {
+      flex: 1;
+      min-width: 0;
+      padding: 0 32px 80px 70px;
+      position: relative;
+      background-image: repeating-linear-gradient(
+        transparent,
+        transparent calc(var(--rule-h) - 1px),
+        var(--rule) calc(var(--rule-h) - 1px),
+        var(--rule) var(--rule-h)
+      );
+      background-attachment: local;
+    }
+    .content::before {
+      content: '';
+      position: absolute;
+      left: 52px; top: 0; bottom: 0;
+      width: 1.5px;
+      background: var(--margin-red);
+      z-index: 1;
+    }
+
+    /* ── Right sidebar ── */
+    .sidebar {
+      width: 240px;
+      flex-shrink: 0;
+      border-left: 1.5px solid rgba(100,145,210,0.18);
+      background: var(--paper-2);
+      padding: 20px 14px 40px;
+      font-size: 13px;
+      overflow-y: auto;
+    }
+    .sidebar-title {
+      font-family: 'Kalam', cursive;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 10px;
+      padding-bottom: 4px;
+      border-bottom: 1.5px solid rgba(100,145,210,0.22);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .sidebar-section { margin-bottom: 20px; }
+
+    /* History */
+    .history-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: none;
+      border: 1px solid transparent;
+      padding: 4px 7px;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--ink-faint);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: background 0.1s, color 0.1s;
+      margin-bottom: 2px;
+    }
+    .history-item:hover {
+      background: rgba(100,145,210,0.10);
+      color: var(--ink);
+      border-color: rgba(100,145,210,0.22);
+    }
+    .no-history { font-size: 12px; color: var(--ink-faint); font-style: italic; }
+
+    /* Schema */
+    .schema-table { margin-bottom: 10px; }
+    .schema-table-name {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--ink);
+      background: rgba(100,145,210,0.10);
+      padding: 2px 6px;
+      border-radius: 2px;
+      display: block;
+      margin-bottom: 3px;
+    }
+    .schema-col {
+      display: flex;
+      justify-content: space-between;
+      padding: 1px 6px;
+      font-family: var(--mono);
+      font-size: 10px;
+    }
+    .schema-col-name { color: var(--ink-light); }
+    .schema-col-type { color: var(--ink-faint); font-style: italic; }
+
+    /* ── Page header ── */
+    .page-header {
+      padding: 22px 0 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-bottom: 8px;
+      border-bottom: 2px solid rgba(100,145,210,0.28);
+    }
+    .breadcrumb-group { display: flex; flex-direction: column; gap: 4px; }
+    .page-title {
+      font-family: 'Kalam', cursive;
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--ink-dark);
+      line-height: 1;
+      transform: rotate(-0.5deg);
+      display: block;
+    }
+    .breadcrumb-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+      color: var(--ink-faint);
+      flex-wrap: wrap;
+    }
+    .back-link { color: var(--ink); text-decoration: none; font-weight: 600; }
+    .back-link:hover { text-decoration: underline; }
+    .bc-sep { color: var(--ink-faint); }
+    .unlocked {
+      font-size: 13px;
+      background: rgba(100,145,210,0.12);
+      color: var(--ink-faint);
+      padding: 2px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(100,145,210,0.25);
+    }
+    .pg-badge {
+      font-size: 12px;
+      background: #e8f0ff;
+      color: #2255aa;
+      padding: 2px 8px;
+      border-radius: 10px;
+      border: 1px solid #aabbee;
+    }
+
+    /* ── Mode switcher ── */
+    .mode-switcher { display: flex; gap: 6px; }
+    .mode-tab {
+      font-family: 'Kalam', cursive;
+      font-size: 15px;
+      font-weight: 700;
+      padding: 5px 16px;
+      border: 2px solid var(--ink-faint);
+      border-radius: 4px;
+      background: transparent;
+      color: var(--ink-faint);
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .mode-tab:hover { border-color: var(--ink); color: var(--ink); }
+    .mode-tab.active {
+      background: var(--ink);
+      border-color: var(--ink);
+      color: var(--paper);
+    }
+
+    /* ── Section labels ── */
+    .section-title {
+      font-family: 'Kalam', cursive;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--ink);
+      margin: 30px 0 10px;
+      padding-bottom: 2px;
+      border-bottom: 2px solid var(--ink);
+      display: inline-block;
+      transform: rotate(-0.3deg);
+    }
+    .sub-label {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+      margin-bottom: 8px;
+      display: block;
+    }
+
+    p, .body-text {
+      font-size: 17px;
+      line-height: var(--rule-h);
+      color: var(--ink-light);
+      letter-spacing: 0.2px;
+    }
+
+    /* ── Reference meta row ── */
+    .ref-header { margin-bottom: 6px; }
+    .ref-meta {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+    .ref-meta-tables {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .ref-meta-chip {
+      font-family: 'Kalam', cursive;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--green-ink);
+      background: var(--highlight2);
+      border: 1px solid #90c8a0;
+      padding: 2px 10px;
+      border-radius: 12px;
+    }
+    .ref-edit-link {
+      font-size: 13px;
+      color: var(--ink-faint);
+      text-decoration: none;
+      padding: 2px 8px;
+      border-radius: 3px;
+      transition: color 0.12s, background 0.12s;
+    }
+    .ref-edit-link:hover {
+      color: var(--ink);
+      background: rgba(100,145,210,0.10);
+    }
+
+    /* ── Reference cards ── */
+    .reference-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+      margin-bottom: 6px;
+    }
+    .ref-card {
+      background: var(--paper-2);
+      border: 1.5px dashed #8aaa80;
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      max-height: 230px;
+    }
+    .ref-card-header {
+      padding: 7px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(100,145,210,0.20);
+      flex-shrink: 0;
+    }
+    .ref-card-title {
+      font-family: 'Kalam', cursive;
+      font-weight: 700;
+      font-size: 16px;
+      color: var(--ink);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .ref-db-name {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--ink-faint);
+      font-weight: 400;
+    }
+    .ref-badge {
+      font-size: 12px;
+      color: var(--ink-faint);
+      background: rgba(100,145,210,0.12);
+      padding: 1px 7px;
+      border-radius: 10px;
+    }
+    .ref-card-body { overflow: auto; flex: 1; }
+    table.ref-data {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      font-family: var(--mono);
+    }
+    table.ref-data th {
+      background: rgba(100,145,210,0.10);
+      color: var(--ink);
+      font-size: 12px;
+      text-align: left;
+      padding: 4px 10px;
+      border-bottom: 1px solid rgba(100,145,210,0.22);
+      position: sticky;
+      top: 0;
+    }
+    table.ref-data td {
+      padding: 3px 10px;
+      border-bottom: 1px solid rgba(100,145,210,0.12);
+      color: var(--ink-light);
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    table.ref-data tr:last-child td { border-bottom: none; }
+    table.ref-data tr:hover td { background: rgba(100,145,210,0.07); }
+
+    .no-selection-note {
+      font-size: 16px;
+      color: var(--ink-faint);
+      font-style: italic;
+      padding: 4px 0 10px;
+    }
+
+    /* ── Editor ── */
+    .editor-wrap {
+      position: relative;
+      background: var(--paper-2);
+      border: 1.5px dashed #8aaa80;
+      border-radius: 4px;
+      padding: 24px 16px 14px;
+      margin: 8px 0 16px;
+    }
+    .code-tab {
+      position: absolute;
+      top: -13px; left: 18px;
+      background: var(--paper-2);
+      border: 1.5px dashed #8aaa80;
+      border-bottom: none;
+      padding: 1px 12px;
+      font-family: 'Patrick Hand', cursive;
+      font-size: 13px;
+      color: var(--ink-faint);
+      border-radius: 4px 4px 0 0;
+    }
+
+    textarea#query {
+      width: 100%;
+      min-height: 100px;
+      font-family: var(--mono);
+      font-size: 15px;
+      padding: 10px 12px;
+      background: var(--paper);
+      color: var(--ink-dark);
+      border: 1px solid rgba(100,145,210,0.30);
+      border-radius: 3px;
+      resize: vertical;
+      outline: none;
+      line-height: 1.6;
+      transition: border-color 0.15s;
+    }
+    textarea#query:focus { border-color: var(--ink-faint); }
+    textarea#query::placeholder { color: var(--ink-faint); opacity: 0.7; }
+
+    .editor-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn-run {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 22px;
+      background: var(--ink);
+      color: var(--paper);
+      font-family: 'Kalam', cursive;
+      font-size: 16px;
+      font-weight: 700;
+      border: 2px solid var(--ink-dark);
+      border-radius: 4px;
+      cursor: pointer;
+      box-shadow: 2px 3px 0 var(--ink-dark);
+      transition: box-shadow 0.1s, transform 0.1s;
+    }
+    .btn-run:hover  { box-shadow: 1px 2px 0 var(--ink-dark); transform: translate(1px, 1px); }
+    .btn-run:active { transform: scale(0.97) translate(1px, 1px); }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 14px;
+      background: var(--paper-2);
+      color: var(--ink);
+      font-family: 'Kalam', cursive;
+      font-size: 14px;
+      font-weight: 700;
+      border: 1.5px solid var(--ink-faint);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: border-color 0.12s, background 0.12s;
+    }
+    .btn-secondary:hover { border-color: var(--ink); background: var(--highlight); }
+
+    .btn-csv {
+      border-color: var(--green-ink);
+      color: var(--green-ink);
+    }
+    .btn-csv:hover { background: var(--highlight2); }
+
+    .keyboard-hint { font-size: 14px; color: var(--ink-faint); }
+    kbd {
+      background: var(--paper-2);
+      border: 1.5px solid rgba(100,145,210,0.30);
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-size: 12px;
+      font-family: var(--mono);
+      color: var(--ink);
+    }
+    .pgsql-hint { font-size: 14px; color: var(--orange-ink); }
+
+    /* ── Write-confirm banner ── */
+    .write-confirm {
+      background: #fff5e8;
+      border: 1.5px solid #e8a060;
+      border-radius: 4px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .write-confirm p { font-size: 16px; color: var(--orange-ink); }
+    .write-confirm p strong { color: var(--ink-dark); }
+    .confirm-btns { display: flex; gap: 8px; }
+    .btn-confirm {
+      padding: 6px 16px;
+      border-radius: 4px;
+      font-family: 'Kalam', cursive;
+      font-size: 15px;
+      font-weight: 700;
+      border: 2px solid;
+      cursor: pointer;
+    }
+    .btn-confirm-yes { background: var(--orange-ink); color: var(--paper); border-color: #7a3a00; }
+    .btn-confirm-yes:hover { background: #7a3a00; }
+    .btn-confirm-no  { background: var(--paper-2); color: var(--ink); border-color: var(--ink-faint); }
+
+    /* ── Results ── */
+    .result-label {
+      font-family: 'Kalam', cursive;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--ink);
+      margin: 28px 0 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .result-pill {
+      font-family: 'Patrick Hand', cursive;
+      font-size: 15px;
+      font-weight: 400;
+      background: var(--highlight2);
+      color: var(--green-ink);
+      padding: 2px 11px;
+      border-radius: 10px;
+      border: 1px solid #90c8a0;
+    }
+    .result-pill.error {
+      background: #fde8e8;
+      color: var(--red-ink);
+      border-color: #e8a0a0;
+    }
+    .exec-time {
+      font-family: 'Patrick Hand', cursive;
+      font-size: 14px;
+      color: var(--ink-faint);
+      background: rgba(100,145,210,0.10);
+      padding: 2px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(100,145,210,0.20);
+    }
+
+    /* ── Profiler panel ── */
+    .profiler-panel {
+      background: var(--paper-2);
+      border: 1.5px solid rgba(100,145,210,0.28);
+      border-radius: 6px;
+      padding: 12px 16px;
+      margin: 10px 0 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 22px;
+      align-items: flex-start;
+    }
+    .profiler-stat {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .profiler-label {
+      font-family: 'Patrick Hand', cursive;
+      font-size: 13px;
+      color: var(--ink-faint);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .profiler-value {
+      font-family: var(--mono);
+      font-size: 19px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+    .profiler-value.fast  { color: #2a7a2a; }
+    .profiler-value.slow  { color: var(--red-ink); }
+    .profiler-divider {
+      width: 1px;
+      align-self: stretch;
+      background: rgba(100,145,210,0.20);
+    }
+
+    /* ── Query log (collapsible) ── */
+    .query-log-details {
+      margin: 6px 0 0;
+      font-size: 15px;
+    }
+    .query-log-details summary {
+      font-family: 'Patrick Hand', cursive;
+      font-size: 15px;
+      color: var(--ink-faint);
+      cursor: pointer;
+      user-select: none;
+      padding: 3px 0;
+    }
+    .query-log-details summary:hover { color: var(--ink); }
+    .query-log-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin-top: 8px;
+      font-family: var(--mono);
+    }
+    .query-log-table th {
+      text-align: left;
+      padding: 5px 10px;
+      border-bottom: 1px solid rgba(100,145,210,0.25);
+      font-family: 'Patrick Hand', cursive;
+      font-size: 13px;
+      text-transform: uppercase;
+      color: var(--ink-faint);
+    }
+    .query-log-table td {
+      padding: 5px 10px;
+      border-bottom: 1px solid rgba(100,145,210,0.12);
+      color: var(--ink-light);
+      word-break: break-all;
+    }
+    .query-log-table tr:last-child td { border-bottom: none; }
+
+    /* ── Comparison panel ── */
+    .comparison-panel {
+      border: 1.5px dashed #f0b060;
+      border-radius: 6px;
+      background: #fffdf5;
+      padding: 12px 16px;
+      margin: 10px 0 16px;
+    }
+    .comparison-header {
+      font-family: 'Kalam', cursive;
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--ink);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .comparison-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .comparison-col {
+      background: var(--paper-2);
+      border-radius: 4px;
+      padding: 10px 12px;
+    }
+    .comparison-col-title {
+      font-family: 'Patrick Hand', cursive;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--ink-faint);
+      margin-bottom: 8px;
+    }
+    .comparison-stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--mono);
+      font-size: 15px;
+      padding: 3px 0;
+    }
+    .comparison-stat-name { color: var(--ink-faint); font-size: 13px; }
+    .comparison-stat-val  { font-weight: 700; color: var(--ink); font-size: 15px; }
+    .comparison-delta {
+      font-family: 'Patrick Hand', cursive;
+      font-size: 15px;
+      padding: 8px 0 0;
+      border-top: 1px dashed rgba(100,145,210,0.25);
+      margin-top: 10px;
+    }
+    .delta-faster { color: #2a7a2a; font-weight: 700; }
+    .delta-slower { color: var(--red-ink); font-weight: 700; }
+    .delta-same   { color: var(--ink-faint); }
+    .btn-pin {
+      font-family: 'Kalam', cursive;
+      font-size: 13px;
+      background: #fffcee;
+      color: #7a5a00;
+      border: 1.5px solid #d4aa40;
+      border-radius: 5px;
+      padding: 3px 10px;
+      cursor: pointer;
+    }
+    .btn-pin:hover { background: #fff3cc; }
+    .btn-clear-pin {
+      font-family: 'Patrick Hand', cursive;
+      font-size: 12px;
+      background: transparent;
+      color: var(--ink-faint);
+      border: 1px solid var(--ink-faint);
+      border-radius: 5px;
+      padding: 2px 8px;
+      cursor: pointer;
+    }
+    .btn-clear-pin:hover { color: var(--red-ink); border-color: var(--red-ink); }
+
+    table.results {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      background: var(--paper-2);
+      border: 1.5px solid rgba(100,145,210,0.28);
+      border-radius: 4px;
+      overflow: hidden;
+      font-family: var(--mono);
+    }
+    table.results th {
+      background: rgba(100,145,210,0.12);
+      color: var(--ink);
+      font-weight: 700;
+      font-size: 15px;
+      text-align: left;
+      padding: 8px 14px;
+      border-bottom: 1.5px solid rgba(100,145,210,0.25);
+    }
+    table.results td {
+      padding: 7px 14px;
+      border-bottom: 1px solid rgba(100,145,210,0.15);
+      color: var(--ink-light);
+      font-size: 15px;
+    }
+    table.results tr:last-child td { border-bottom: none; }
+    table.results tr:hover td { background: rgba(100,145,210,0.07); }
+
+    /* SQL code block */
+    .sql-block {
+      position: relative;
+      background: var(--paper-2);
+      border: 1.5px dashed #8aaa80;
+      border-radius: 4px;
+      padding: 22px 16px 16px;
+      margin: 4px 0 0;
+    }
+    .sql-block .code-tab { border-color: #8aaa80; }
+    pre.sql {
+      font-family: var(--mono);
+      font-size: 14px;
+      color: var(--ink);
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.65;
+    }
+
+    /* ── Beautiful error card ── */
+    .error-card {
+      background: #fff5f5;
+      border: 1.5px solid #e8a0a0;
+      border-radius: 6px;
+      overflow: hidden;
+      margin: 4px 0 18px;
+      box-shadow: 2px 3px 10px rgba(194, 48, 40, 0.07);
+    }
+    .error-card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      background: #fde8e8;
+      border-bottom: 1px solid #e8a0a0;
+    }
+    .error-icon {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px; height: 22px;
+      background: var(--red-ink);
+      color: white;
+      border-radius: 50%;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .error-card-title {
+      font-family: 'Kalam', cursive;
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--red-ink);
+    }
+    .error-card-body {
+      padding: 14px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .error-detail {
+      font-family: var(--mono);
+      font-size: 14px;
+      color: #7a1010;
+      background: #fff0f0;
+      border: 1px solid #f0b8b8;
+      border-radius: 4px;
+      padding: 8px 12px;
+      word-break: break-word;
+      line-height: 1.6;
+    }
+    .error-line-hint {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--red-ink);
+    }
+    .error-line-hint-label {
+      font-family: 'Patrick Hand', cursive;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--ink-faint);
+      flex-shrink: 0;
+    }
+    .error-line-hint code {
+      font-family: var(--mono);
+      font-size: 12px;
+      background: #fff0f0;
+      border: 1px solid #f0b8b8;
+      padding: 1px 6px;
+      border-radius: 3px;
+      color: var(--red-ink);
+    }
+    .error-hint {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      background: #fffbec;
+      border: 1px solid #f0d080;
+      border-radius: 4px;
+      padding: 8px 12px;
+      font-size: 14.5px;
+      color: #6b4800;
+      line-height: 1.55;
+    }
+    .error-hint-icon { flex-shrink: 0; font-size: 16px; margin-top: 1px; }
+
+    .error-traceback-details {
+      border-top: 1px solid #e8a0a0;
+    }
+    .error-traceback-details summary {
+      padding: 7px 16px;
+      font-family: 'Patrick Hand', cursive;
+      font-size: 13px;
+      color: var(--ink-faint);
+      cursor: pointer;
+      user-select: none;
+      background: #fde8e8;
+    }
+    .error-traceback-details summary:hover { color: var(--red-ink); }
+    .error-traceback-details[open] summary { border-bottom: 1px solid #e8a0a0; }
+    pre.error-box {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: #7a1010;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      line-height: 1.6;
+      padding: 12px 16px;
+      margin: 0;
+      background: #fff5f5;
+    }
+
+    .scalar-box {
+      background: var(--paper-2);
+      border: 1.5px solid rgba(100,145,210,0.30);
+      border-radius: 4px;
+      padding: 12px 16px;
+      font-family: var(--mono);
+      font-size: 16px;
+      color: var(--green-ink);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .empty-note {
+      color: var(--ink-faint);
+      font-size: 16px;
+      font-style: italic;
+      padding: 6px 0;
+    }
+
+    /* ── Highlight helpers ── */
+    .hl  { background: var(--highlight);  padding: 0 3px; border-radius: 2px; }
+    .hl2 { background: var(--highlight2); padding: 0 3px; border-radius: 2px; }
+    .hl3 { background: var(--highlight3); padding: 0 3px; border-radius: 2px; }
+
+    /* ── Export row ── */
+    .result-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    @media (max-width: 900px) {
+      .sidebar { display: none; }
+    }
+    @media (max-width: 640px) {
+      .page-header { flex-direction: column; align-items: flex-start; }
+      .content { padding: 0 20px 60px 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="notebook">
+  <div class="binding" id="holes"></div>
+
+  <div class="main-area">
+    <div class="content">
+
+      <!-- ── Page header ── -->
+      <div class="page-header">
+        <div class="breadcrumb-group">
+          <span class="page-title">Query Playground</span>
+          <div class="breadcrumb-nav">
+            <a href="{% url 'playground:landing' %}" class="back-link">← ORM Playground</a>
+            <span class="bc-sep">/</span>
+            <span>Query</span>
+            <span class="unlocked">🔓 all tables queryable</span>
+            <span class="pg-badge">🐘 PostgreSQL</span>
+          </div>
+        </div>
+
+        <!-- Mode switcher -->
+        <form method="post" action="{% url 'playground:index' %}" id="mode-form">
+          {% csrf_token %}
+          <div class="mode-switcher">
+            <button type="submit" name="set_mode" value="orm"
+              class="mode-tab {% if mode == 'orm' %}active{% endif %}">
+              Django ORM
+            </button>
+            <button type="submit" name="set_mode" value="pgsql"
+              class="mode-tab {% if mode == 'pgsql' %}active{% endif %}">
+              PostgreSQL
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ── Reference tables ── -->
+      <span class="section-title">① Reference data</span>
+
+      <div class="ref-header">
+        {% if selected_keys %}
+        <div class="ref-meta">
+          <span class="ref-meta-tables">
+            {% for key in selected_keys %}<span class="ref-meta-chip">{{ key }}</span>{% endfor %}
+          </span>
+          <a href="{% url 'playground:landing' %}" class="ref-edit-link">✎ Edit selection</a>
+        </div>
+        {% else %}
+        <div class="ref-meta">
+          <a href="{% url 'playground:landing' %}" class="ref-edit-link">← Pin tables from the home page</a>
+        </div>
+        {% endif %}
+      </div>
+
+      {% if reference_tables %}
+      <div class="reference-grid">
+        {% for t in reference_tables %}
+        <div class="ref-card">
+          <div class="ref-card-header">
+            <div class="ref-card-title">
+              {{ t.label }}
+              <span class="ref-db-name">{{ t.db_table }}</span>
+            </div>
+            <span class="ref-badge">{{ t.count }} row{{ t.count|pluralize }}</span>
+          </div>
+          <div class="ref-card-body">
+            {% if t.rows %}
+            <table class="ref-data">
+              <thead><tr>{% for col in t.columns %}<th>{{ col }}</th>{% endfor %}</tr></thead>
+              <tbody>
+                {% for row in t.rows %}<tr>{% for cell in row %}<td title="{{ cell }}">{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+              </tbody>
+            </table>
+            {% else %}
+            <p class="empty-note" style="padding:.6rem 10px;">No rows.</p>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="no-selection-note">
+        No tables pinned. <a href="{% url 'playground:landing' %}" style="color:var(--ink); font-weight:600;">← Go back</a> to select tables to pin here as reference.
+      </p>
+      {% endif %}
+
+      <!-- ── Query editor ── -->
+      <span class="section-title">② {% if mode == 'orm' %}ORM expression{% else %}SQL query{% endif %}</span>
+
+      <div class="editor-wrap">
+        <span class="code-tab">
+          {% if mode == 'orm' %}Python · Django ORM{% else %}SQL · PostgreSQL{% endif %}
+        </span>
+
+        <form method="post" action="{% url 'playground:index' %}" id="query-form">
+          {% csrf_token %}
+          <textarea
+            name="query"
+            id="query"
+            autocomplete="off"
+            spellcheck="false"
+            placeholder="{% if mode == 'orm' %}e.g.  Book.objects.filter(status=&quot;published&quot;).order_by(&quot;-price&quot;){% else %}e.g.  SELECT * FROM playground_book WHERE price > 20{% endif %}"
+          >{{ query_text }}</textarea>
+
+          <input type="hidden" name="confirm_write" id="confirm_write_field" value="0">
+
+          {% if needs_write_confirm %}
+          <div class="write-confirm">
+            <p><strong>⚠ This query will modify data.</strong> Run it? (Reset with <code>python manage.py migrate --run-syncdb</code>.)</p>
+            <div class="confirm-btns">
+              <button type="button" class="btn-confirm btn-confirm-no"
+                onclick="document.getElementById('query-form').reset()">Cancel</button>
+              <button type="button" class="btn-confirm btn-confirm-yes"
+                onclick="confirmWrite()">Yes, run it</button>
+            </div>
+          </div>
+          {% endif %}
+
+          <div class="editor-actions">
+            <button type="submit" class="btn-run" id="run-btn">▶ Run</button>
+            <span class="keyboard-hint"><kbd>Ctrl</kbd> + <kbd>Enter</kbd></span>
+
+            {% if mode == 'pgsql' %}
+            <button type="submit" name="run_explain" value="1" class="btn-secondary">
+              🔍 Explain
+            </button>
+            <button type="submit" name="format_sql" value="1" class="btn-secondary">
+              ✨ Format SQL
+            </button>
+            <span class="pgsql-hint">⚡ writes trigger a confirmation step</span>
+            {% endif %}
+          </div>
+        </form>
+
+        <!-- Pin / clear-pin (outside main form) -->
+        {% if exec_ms is not None %}
+        <div style="margin-top:8px; display:flex; gap:8px; align-items:center;">
+          <form method="post" action="{% url 'playground:index' %}" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" name="pin_result" value="1" class="btn-pin"
+              title="Save this result as 'Before' for optimization comparison">
+              📌 Pin as Before
+            </button>
+          </form>
+          {% if pinned %}
+          <form method="post" action="{% url 'playground:index' %}" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" name="clear_pin" value="1" class="btn-clear-pin">
+              ✕ Clear pin
+            </button>
+          </form>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div><!-- /.editor-wrap -->
+
+      <!-- ── Results ── -->
+      {% if error %}
+      <div class="result-label" style="margin-top: 28px;">
+        Error <span class="result-pill error">{{ error.title }}</span>
+      </div>
+
+      <!-- Main error card -->
+      <div class="error-card">
+        <div class="error-card-header">
+          <span class="error-icon">✕</span>
+          <span class="error-card-title">{{ error.title }}</span>
+        </div>
+        <div class="error-card-body">
+
+          <!-- The core message -->
+          <div class="error-detail">{{ error.detail }}</div>
+
+          <!-- SQL line hint (only when present) -->
+          {% if error.line_hint %}
+          <div class="error-line-hint">
+            <span class="error-line-hint-label">Near:</span>
+            <code>{{ error.line_hint }}</code>
+          </div>
+          {% endif %}
+
+          <!-- Actionable hint -->
+          {% if error.hint %}
+          <div class="error-hint">
+            <span class="error-hint-icon">💡</span>
+            <span>{{ error.hint }}</span>
+          </div>
+          {% endif %}
+
+        </div>
+
+        <!-- Collapsible raw traceback -->
+        {% if error.raw %}
+        <details class="error-traceback-details">
+          <summary>Show full traceback</summary>
+          <pre class="error-box">{{ error.raw }}</pre>
+        </details>
+        {% endif %}
+      </div>
+
+      {% elif result_kind == "queryset" or result_kind == "instance" %}
+      <div class="result-actions">
+        <div class="result-label" style="margin:0;">
+          Results
+          <span class="result-pill">{{ rows|length }} row{{ rows|length|pluralize }}</span>
+          {% if exec_ms is not None %}<span class="exec-time">⏱ {{ exec_ms }} ms</span>{% endif %}
+        </div>
+        {% if rows %}
+        <form method="post" action="{% url 'playground:index' %}" style="display:inline;">
+          {% csrf_token %}
+          <button type="submit" name="export_csv" value="1" class="btn-secondary btn-csv">
+            ⬇ Export CSV
+          </button>
+        </form>
+        {% endif %}
+      </div>
+
+      <!-- ── Profiler panel ── -->
+      {% if exec_ms is not None %}
+      {% include "playground/_profiler.html" %}
+      {% endif %}
+
+      <table class="results">
+        <thead><tr>{% for col in columns %}<th>{{ col }}</th>{% endfor %}</tr></thead>
+        <tbody>
+          {% for row in rows %}<tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>{% endfor %}
+        </tbody>
+      </table>
+
+      {% elif result_kind == "empty_queryset" %}
+      <div class="result-label">
+        Results
+        {% if exec_ms is not None %}<span class="exec-time">⏱ {{ exec_ms }} ms</span>{% endif %}
+      </div>
+      {% if exec_ms is not None %}{% include "playground/_profiler.html" %}{% endif %}
+      <p class="empty-note">Query ran — no rows returned.</p>
+
+      {% elif result_kind == "scalar" %}
+      <div class="result-label">
+        Result
+        {% if exec_ms is not None %}<span class="exec-time">⏱ {{ exec_ms }} ms</span>{% endif %}
+      </div>
+      {% if exec_ms is not None %}{% include "playground/_profiler.html" %}{% endif %}
+      <div class="scalar-box">{{ scalar_result }}</div>
+      {% endif %}
+
+      {% if sql %}
+      <div class="result-label" style="margin-top:24px;">
+        {% if mode == 'orm' %}<span class="hl">Generated SQL</span>{% else %}<span class="hl3">Executed SQL</span>{% endif %}
+      </div>
+      <div class="sql-block">
+        <span class="code-tab">{% if mode == 'orm' %}generated by Django ORM{% else %}executed{% endif %}</span>
+        <pre class="sql">{{ sql }}</pre>
+      </div>
+      {% endif %}
+
+    </div><!-- /.content -->
+
+    <!-- ── Right sidebar ── -->
+    <div class="sidebar">
+
+      <!-- History -->
+      <div class="sidebar-section">
+        <div class="sidebar-title">🕐 History</div>
+        {% if history %}
+          {% for item in history %}
+          <button class="history-item" title="{{ item.query }}"
+            data-query="{{ item.query|escapejs }}"
+            onclick="loadHistory(this)">
+            {{ item.label }}
+          </button>
+          {% endfor %}
+        {% else %}
+          <span class="no-history">No history yet — run a query!</span>
+        {% endif %}
+      </div>
+
+      <!-- Schema -->
+      {% if schema_info %}
+      <div class="sidebar-section">
+        <div class="sidebar-title">🗂 Schema</div>
+        {% for tbl in schema_info %}
+        <div class="schema-table">
+          <span class="schema-table-name">{{ tbl.table }}</span>
+          {% for col in tbl.columns %}
+          <div class="schema-col">
+            <span class="schema-col-name">{{ col.name }}</span>
+            <span class="schema-col-type">{{ col.type }}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+    </div><!-- /.sidebar -->
+  </div><!-- /.main-area -->
+</div><!-- /.notebook -->
+
+<script>
+  // Punch binding holes
+  const binding = document.getElementById('holes');
+  for (let i = 0; i < 10; i++) {
+    const h = document.createElement('div');
+    h.className = 'hole';
+    binding.appendChild(h);
+  }
+
+  // Ctrl+Enter to run
+  document.getElementById('query').addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      document.getElementById('run-btn').click();
+    }
+  });
+
+  // Write confirm
+  function confirmWrite() {
+    document.getElementById('confirm_write_field').value = '1';
+    document.getElementById('query-form').submit();
+  }
+
+  // Load history item directly into textarea — no page reload
+  function loadHistory(btn) {
+    const q = btn.getAttribute('data-query');
+    const ta = document.getElementById('query');
+    ta.value = q;
+    ta.focus();
+    // Scroll textarea to top so the query is visible from the start
+    ta.setSelectionRange(0, 0);
+    ta.scrollTop = 0;
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,227 @@
+{% comment %}
+_profiler.html — Query Profiler Panel
+
+Displayed after every successful query run (ORM and PostgreSQL modes).
+Context variables used:
+  exec_ms          — execution time in milliseconds  (float)
+  exec_sec         — execution time in seconds       (float, 4 dp)
+  db_query_count   — number of SQL statements issued (int, ORM only)
+  db_queries       — list of {sql, time_ms}          (ORM only)
+  pg_processes     — active backend count            (int, PostgreSQL only)
+  rows             — result rows (used for row count)
+  pinned           — previously pinned result dict (or None)
+  mode             — "orm" | "pgsql"
+{% endcomment %}
+
+<!-- ── Stats panel ── -->
+<div class="profiler-panel">
+
+  <!-- Time in ms -->
+  <div class="profiler-stat">
+    <span class="profiler-label">Time (ms)</span>
+    <span class="profiler-value {% if exec_ms < 5 %}fast{% elif exec_ms > 100 %}slow{% endif %}">
+      {{ exec_ms }}
+    </span>
+  </div>
+
+  <div class="profiler-divider"></div>
+
+  <!-- Time in seconds -->
+  <div class="profiler-stat">
+    <span class="profiler-label">Time (sec)</span>
+    <span class="profiler-value {% if exec_sec < 0.005 %}fast{% elif exec_sec > 0.1 %}slow{% endif %}">
+      {{ exec_sec }}
+    </span>
+  </div>
+
+  {% if db_query_count is not None %}
+  <div class="profiler-divider"></div>
+
+  <!-- DB query count (ORM mode) -->
+  <div class="profiler-stat">
+    <span class="profiler-label">DB Queries</span>
+    <span class="profiler-value {% if db_query_count == 1 %}fast{% elif db_query_count >= 5 %}slow{% endif %}">
+      {{ db_query_count }}
+    </span>
+  </div>
+  {% endif %}
+
+  {% if pg_processes is not None %}
+  <div class="profiler-divider"></div>
+
+  <!-- Active PG backends (SQL mode) -->
+  <div class="profiler-stat">
+    <span class="profiler-label">Active Backends</span>
+    <span class="profiler-value">{{ pg_processes }}</span>
+  </div>
+  {% endif %}
+
+  <div class="profiler-divider"></div>
+
+  <!-- Row count -->
+  <div class="profiler-stat">
+    <span class="profiler-label">Rows Returned</span>
+    <span class="profiler-value">{{ rows|length|default:"0" }}</span>
+  </div>
+
+</div>
+
+<!-- ── Individual query log (ORM only, collapsible) ── -->
+{% if db_queries %}
+<details class="query-log-details">
+  <summary>🔎 Show {{ db_queries|length }} SQL statement{{ db_queries|length|pluralize }} issued by Django</summary>
+  <table class="query-log-table">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Time (ms)</th>
+        <th>SQL</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for q in db_queries %}
+      <tr>
+        <td style="color:var(--ink-faint); min-width:28px;">{{ forloop.counter }}</td>
+        <td style="min-width:70px; font-weight:700; {% if q.time_ms > 20 %}color:var(--red-ink);{% elif q.time_ms < 2 %}color:#2a7a2a;{% endif %}">
+          {{ q.time_ms }}
+        </td>
+        <td>{{ q.sql }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</details>
+{% endif %}
+
+<!-- ── Optimization comparison panel ── -->
+{% if pinned %}
+<div class="comparison-panel">
+  <div class="comparison-header">
+    ⚡ Optimization Comparison
+    <span style="font-family:'Patrick Hand',cursive; font-size:12px; font-weight:400; color:var(--ink-faint);">
+      (pin a query as "before", optimize it, run again to see the diff)
+    </span>
+  </div>
+
+  <div class="comparison-grid">
+
+    <!-- Before column -->
+    <div class="comparison-col">
+      <div class="comparison-col-title">📌 Before (pinned)</div>
+
+      <div class="comparison-stat-row">
+        <span class="comparison-stat-name">Time</span>
+        <span class="comparison-stat-val">
+          {% if pinned.exec_ms is not None %}{{ pinned.exec_ms }} ms{% else %}—{% endif %}
+        </span>
+      </div>
+
+      <div class="comparison-stat-row">
+        <span class="comparison-stat-name">Seconds</span>
+        <span class="comparison-stat-val">
+          {% if pinned.exec_sec is not None %}{{ pinned.exec_sec }} s{% else %}—{% endif %}
+        </span>
+      </div>
+
+      {% if pinned.db_query_count is not None %}
+      <div class="comparison-stat-row">
+        <span class="comparison-stat-name">DB Queries</span>
+        <span class="comparison-stat-val">{{ pinned.db_query_count }}</span>
+      </div>
+      {% endif %}
+
+      {% if pinned.pg_processes is not None %}
+      <div class="comparison-stat-row">
+        <span class="comparison-stat-name">Backends</span>
+        <span class="comparison-stat-val">{{ pinned.pg_processes }}</span>
+      </div>
+      {% endif %}
+
+      <div class="comparison-stat-row">
+        <span class="comparison-stat-name">Rows</span>
+        <span class="comparison-stat-val">{{ pinned.row_count }}</span>
+      </div>
+
+      {% if pinned.query %}
+      <details style="margin-top:6px;">
+        <summary style="font-family:'Patrick Hand',cursive; font-size:11px; color:var(--ink-faint); cursor:pointer;">
+          Show query
+        </summary>
+        <pre style="font-size:11px; font-family:var(--mono); color:var(--ink-light); white-space:pre-wrap; word-break:break-all; margin-top:4px;">{{ pinned.query }}</pre>
+      </details>
+      {% endif %}
+    </div>
+
+    <!-- After column -->
+    <div class="comparison-col">
+      <div class="comparison-col-title">✅ After (current)</div>
+
+      <div class="comparison-stat-row">
+        <span class="comparison-stat-name">Time</span>
+        <span class="comparison-stat-val">{{ exec_ms }} ms</span>
+      </div>
+
+      <div class="comparison-stat-row">
+        <span class="comparison-stat-name">Seconds</span>
+        <span class="comparison-stat-val">{{ exec_sec }} s</span>
+      </div>
+
+      {% if db_query_count is not None %}
+      <div class="comparison-stat-row">
+        <span class="comparison-stat-name">DB Queries</span>
+        <span class="comparison-stat-val">{{ db_query_count }}</span>
+      </div>
+      {% endif %}
+
+      {% if pg_processes is not None %}
+      <div class="comparison-stat-row">
+        <span class="comparison-stat-name">Backends</span>
+        <span class="comparison-stat-val">{{ pg_processes }}</span>
+      </div>
+      {% endif %}
+
+      <div class="comparison-stat-row">
+        <span class="comparison-stat-name">Rows</span>
+        <span class="comparison-stat-val">{{ rows|length }}</span>
+      </div>
+
+      <!-- Delta summary -->
+      {% if pinned.exec_ms and exec_ms %}
+      <div class="comparison-delta">
+        {% if exec_ms < pinned.exec_ms %}
+          <span class="delta-faster">
+            ▼ {{ pinned.exec_ms|floatformat:1 }}ms → {{ exec_ms }}ms
+            — faster by {{ pinned.exec_ms|floatformat:1 }} − {{ exec_ms }} ms
+          </span>
+        {% elif exec_ms > pinned.exec_ms %}
+          <span class="delta-slower">
+            ▲ {{ pinned.exec_ms|floatformat:1 }}ms → {{ exec_ms }}ms
+            — slower than before
+          </span>
+        {% else %}
+          <span class="delta-same">≈ Same speed as before</span>
+        {% endif %}
+
+        {% if pinned.db_query_count is not None and db_query_count is not None %}
+          <br>
+          {% if db_query_count < pinned.db_query_count %}
+            <span class="delta-faster">
+              ▼ {{ pinned.db_query_count }} → {{ db_query_count }} DB queries
+              — {{ pinned.db_query_count|add:"-0" }} fewer hits
+            </span>
+          {% elif db_query_count > pinned.db_query_count %}
+            <span class="delta-slower">
+              ▲ {{ pinned.db_query_count }} → {{ db_query_count }} DB queries
+              — more DB hits
+            </span>
+          {% else %}
+            <span class="delta-same">Same DB query count</span>
+          {% endif %}
+        {% endif %}
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+{% endif %}
