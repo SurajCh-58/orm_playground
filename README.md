@@ -262,6 +262,6 @@ orm_playground/
 
 ## Built With Claude AI
 
-This project was developed entirely through a conversation with **Claude** (Anthropic) as a portfolio and learning exercise. The goal was not just to build a working tool, but to understand every part of it — from Django's query evaluation lifecycle to PostgreSQL's `pg_stat_activity` view to how `connection.queries` works internally.
+This project was developed entirely through a conversation with **Claude** (Anthropic) . The goal was not just to build a working tool, but to understand every part of it — from Django's query evaluation lifecycle to PostgreSQL's `pg_stat_activity` view to how `connection.queries` works internally.
 
 Every feature was designed, debugged, and refined iteratively. If you're learning Django backend development, building projects like this with an AI pair-programmer is one of the fastest ways to go from theory to real understanding.
